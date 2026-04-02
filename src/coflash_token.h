@@ -161,6 +161,50 @@ private:
 
 public:
 	DriverOption(const string& path = string()) : FileArgument(path){}
+
+	string cmsisPackDirectory() const
+	{
+		string dir;
+		string path = directory();
+		bool rootDir = false;
+
+		// Защита от ошибок и зависания
+		int level = 100;
+
+		if(path.empty()) return "";
+		if(hasPdscFile(path)) return path;
+
+		while(!path.empty() && !rootDir && --level > 0)
+		{
+			path = uplevelDir(path, &rootDir);
+
+			if(hasPdscFile(path))
+			{
+				dir = path;
+				break;
+			}
+		}
+
+		return dir;
+	}
+
+private:
+#ifdef _WIN32
+	bool hasPdscFile(const string& dir) const
+	{
+		std::string searchPath = dir + "\\*.pdsc";
+		WIN32_FIND_DATAA findData;
+		HANDLE hFind = FindFirstFileA(searchPath.c_str(), &findData);
+		if(hFind != INVALID_HANDLE_VALUE)
+		{
+			FindClose(hFind);
+			return true;
+		}
+		return false;
+	}
+#else
+	bool hasPdscFile(const string& dir) { return false; }
+#endif
 };
 
 //------------------------------------------------------------------------------
@@ -544,17 +588,7 @@ private:
 		cout << getDriver().path() << endl;
 		cout << getDriver().extension() << endl;
 		cout << getDriver().directory() << endl;
-
-		//cout << getDriver().uplevelDir(getDriver().directory()) << endl;
-		string path = getDriver().directory();
-		bool rootLevel = false;
-
-		while(!path.empty() && !rootLevel)
-		{
-			cout << path << endl;
-			path = DriverOption::uplevelDir(path, &rootLevel);
-		}
-		cout << path << endl;
+		cout << "CMSIS PACK: " << getDriver().cmsisPackDirectory() << endl;
 
 		cout << getCpu() << endl;
 		cout << getDebugger() << endl;
@@ -579,8 +613,8 @@ private:
 			string cmd = pyOcdBuilder.
 							withCommand(command).
 							withTarget(getCpu()).
-							withPack("cmsis.pack").
-							withFirmware("firmware.elf").
+							withPack(getDriver().cmsisPackDirectory()).
+							withFirmware(getFirmware().path()).
 							withFrequency(getDebuggerClock()).
 							withErase(getEraseOption()).
 							build();

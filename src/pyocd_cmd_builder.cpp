@@ -63,7 +63,7 @@ std::vector<std::string> PyOcdCommandBuilder::buildArgs() const
 		if(!m_packPath.empty())
 		{
 			args.push_back("--pack");
-			args.push_back(m_packPath);
+			args.push_back('"' + m_packPath + '"');
 		}
 
 		// Frequency
@@ -83,7 +83,7 @@ std::vector<std::string> PyOcdCommandBuilder::buildArgs() const
 		// Firmware (в самом конце)
 		if(!m_firmwarePath.empty() && m_command == "flash")
 		{
-			args.push_back(m_firmwarePath);
+			args.push_back('"' + m_firmwarePath + '"');
 		}
 	}
 
