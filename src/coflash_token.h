@@ -12,7 +12,7 @@
 #include "pyocd_cmd_builder.h"
 
 #define COFLASH_ORIGIN_APP     "coflash_origin.exe"
-#define DEBUG_ENABLE           (1)
+#define DEBUG_ENABLE           (0)
 
 using namespace std;
 
@@ -622,7 +622,28 @@ private:
 			cout << cmd << endl;
 		}
 #else
-		execCoFlash(makeCmdLine().data());
+		CoFlashCommand command = getCommand();
+
+		if(getDriver().extension() == "flm" &&
+		   (command.getType() == CoFlashCommand::program ||
+			command.getType() == CoFlashCommand::erase ||
+			command.getType() == CoFlashCommand::verify ||
+			command.getType() == CoFlashCommand::help))
+		{
+			PyOcdCommandBuilder pyOcdBuilder;
+			string cmd = pyOcdBuilder.
+							withCommand(command).
+							withTarget(getCpu()).
+							withPack(getDriver().cmsisPackDirectory()).
+							withFirmware(getFirmware().path()).
+							withFrequency(getDebuggerClock()).
+							withErase(getEraseOption()).
+							build();
+			cout << cmd << endl;
+			execCoFlash(cmd.data());
+		}
+		else
+			execCoFlash(makeCmdLine().data());
 #endif
 		return EXIT_SUCCESS;
 	}
