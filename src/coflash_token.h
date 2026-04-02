@@ -1,6 +1,7 @@
 #ifndef COFLASH_TOKEN_H_
 #define COFLASH_TOKEN_H_
 
+#include <windows.h>
 #include <iostream>
 #include <algorithm>
 #include <cstring>
@@ -8,24 +9,74 @@
 #include <vector>
 #include <string>
 #include "version.h"
+#include "pyocd_cmd_builder.h"
 
 #define COFLASH_ORIGIN_APP     "coflash_origin.exe"
-#define DEBUG_ENABLE           0
+#define DEBUG_ENABLE           (1)
 
 using namespace std;
 
 //------------------------------------------------------------------------------
-// Аргумент команды --driver=
+// Команды CoFlash
 //------------------------------------------------------------------------------
-class DriverOption
+class CoFlashCommand
 {
+public:
+	enum Command
+	{
+		erase,            // Erase the flash device.
+		program,          // Program a bin file into the flash device.
+		verify,           // Verify  a bin file.
+		blankcheck,       // Do blank check.
+		help,             // Show help for the basic command that you specify.
+	};
+
 private:
+
+	Command m_command;
+
+public:
+	CoFlashCommand(Command c) : m_command(c) {}
+	CoFlashCommand(const string& c = "help")
+	{
+		string cmd = c;
+		transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
+
+		if(cmd == "erase") m_command = erase;
+		else if(cmd == "program") m_command = program;
+		else if(cmd == "verify") m_command = verify;
+		else if(cmd == "blankcheck") m_command = blankcheck;
+		else m_command = help;
+	}
+
+	string toString() const
+	{
+		string cmd;
+
+		if(m_command == erase) cmd = "erase";
+		else if(m_command == program) cmd = "program";
+		else if(m_command == verify) cmd = "verify";
+		else if(m_command == blankcheck) cmd = "blankcheck";
+		else cmd = "help";
+
+		return cmd;
+	}
+
+	Command getType() const { return m_command; }
+};
+
+//------------------------------------------------------------------------------
+// Аргумент, представляющий собой путь к файлу
+//------------------------------------------------------------------------------
+class FileArgument
+{
+protected:
 	string m_path;
 
 public:
-	DriverOption(const string& path = string())
+	FileArgument(const string& path = string())
 	{
-		m_path = path;
+		setPath(path);
 	}
 
 	string path() const
@@ -52,10 +103,76 @@ public:
 		return ext;
 	}
 
+	string directory() const
+	{
+		return uplevelDir(m_path);
+	}
+
+	static string uplevelDir(string path, bool * rootLevel = nullptr)
+	{
+		string dir;
+
+		if(!path.empty())
+		{
+			// Замена слешей на обратные
+			replace(path.begin(), path.end(), '/', '\\');
+
+			// Удаляем все после слэша
+			size_t slashPos = path.find_last_of('\\');
+
+			if(slashPos != string::npos)
+			{
+				dir = path.substr(0, slashPos);
+
+				// Последний уровень
+				if(dir.find_last_of('\\') == string::npos)
+				{
+					if(rootLevel) *rootLevel = true;
+					dir += '\\';
+				}
+				else if(rootLevel)
+					*rootLevel = false;
+			}
+		}
+
+		return dir;
+	}
+
 	bool isEmpty()
 	{
 		return m_path.empty();
 	}
+
+	void setPath(const string& path)
+	{
+		string p = path;
+		replace(p.begin(), p.end(), '/', '\\');
+		m_path = p;
+	}
+};
+
+//------------------------------------------------------------------------------
+// Аргумент команды --driver=
+//------------------------------------------------------------------------------
+class DriverOption : public FileArgument
+{
+private:
+	string m_path;
+
+public:
+	DriverOption(const string& path = string()) : FileArgument(path){}
+};
+
+//------------------------------------------------------------------------------
+// Аргумент команды путь к прошивке
+//------------------------------------------------------------------------------
+class FirmwareOption : public FileArgument
+{
+private:
+	string m_path;
+
+public:
+	FirmwareOption(const string& path = string()) : FileArgument(path){}
 };
 
 //------------------------------------------------------------------------------
@@ -151,6 +268,8 @@ public:
 
 		return variant;
 	}
+
+	EraseVariant getVariant() { return m_eraseVariant; }
 };
 
 //------------------------------------------------------------------------------
@@ -214,20 +333,76 @@ public:
 	//
 	static void execCoFlash(const char * cmd)
 	{
-		FILE * stdOutput = popen(cmd, "rt");
+		HANDLE hReadPipe, hWritePipe;
+		SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
 
-		if(stdOutput)
+		// Создаём pipe для захвата вывода
+		if (!CreatePipe(&hReadPipe, &hWritePipe, &sa, 0))
 		{
-			char buffer[1024];
-
-			while(fgets(buffer, sizeof(buffer), stdOutput) != NULL)
-			{
-				std::string line = buffer;
-				std::cout << line;
-			}
-			pclose(stdOutput);
+			std::cerr << "Failed to create pipe" << std::endl;
+			return;
 		}
+
+		// Настраиваем STARTUPINFO
+		STARTUPINFO si = { sizeof(STARTUPINFO) };
+		si.dwFlags = STARTF_USESTDHANDLES;
+		si.hStdOutput = hWritePipe;
+		si.hStdError = hWritePipe;
+		si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+		// Запускаем процесс
+		PROCESS_INFORMATION pi;
+		char* cmdLine = _strdup(cmd);
+
+		BOOL success = CreateProcess(
+			NULL, cmdLine, NULL, NULL, TRUE,
+			CREATE_NO_WINDOW, NULL, NULL, &si, &pi
+		);
+
+		free(cmdLine);
+		CloseHandle(hWritePipe);  // закрываем писатель в родителе
+
+		if (!success)
+		{
+			std::cerr << "Failed to create process" << std::endl;
+			CloseHandle(hReadPipe);
+			return;
+		}
+
+		// Читаем вывод
+		char buffer[4096];
+		DWORD bytesRead;
+
+		while (ReadFile(hReadPipe, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0)
+		{
+			// Просто выводим, но убираем лишние \r
+			for (DWORD i = 0; i < bytesRead; ++i)
+			{
+				if (buffer[i] != '\r')
+				{
+					std::cout << buffer[i];
+				}
+			}
+
+			std::flush(std::cout);
+		}
+
+		// Ждём завершения процесса
+		WaitForSingleObject(pi.hProcess, INFINITE);
+
+		// Получаем код возврата
+		DWORD exitCode = 0;
+		GetExitCodeProcess(pi.hProcess, &exitCode);
+
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
+		CloseHandle(hReadPipe);
 	}
+
+	//
+	// Возврат команды
+	//
+	CoFlashCommand getCommand() const { return CoFlashCommand(m_key); }
 
 	//
 	// Аргумент "драйвер"
@@ -247,6 +422,21 @@ public:
 		}
 
 		return cpu;
+	}
+
+	//
+	// Прошивка
+	//
+	FirmwareOption getFirmware() const
+	{
+		FirmwareOption firmware;
+
+		if(m_type == COMMAND && m_args.size() > 1)
+		{
+			firmware.setPath(m_args.at(1));
+		}
+
+		return firmware;
 	}
 
 	//
@@ -349,8 +539,23 @@ private:
 	{
 #if DEBUG_ENABLE
 		cout << getKey() << endl;
+		cout << getFirmware().path() << endl;
+		cout << getFirmware().extension() << endl;
 		cout << getDriver().path() << endl;
 		cout << getDriver().extension() << endl;
+		cout << getDriver().directory() << endl;
+
+		//cout << getDriver().uplevelDir(getDriver().directory()) << endl;
+		string path = getDriver().directory();
+		bool rootLevel = false;
+
+		while(!path.empty() && !rootLevel)
+		{
+			cout << path << endl;
+			path = DriverOption::uplevelDir(path, &rootLevel);
+		}
+		cout << path << endl;
+
 		cout << getCpu() << endl;
 		cout << getDebugger() << endl;
 		cout << getDebuggerClock() << endl;
@@ -361,9 +566,29 @@ private:
 		cout << postRunRequired() << endl;
 		cout << getOffset() << endl;
 		cout << makeCmdLine() << endl;
+
+		CoFlashCommand command = getCommand();
+
+		if(getDriver().extension() == "flm" &&
+		   (command.getType() == CoFlashCommand::program ||
+		    command.getType() == CoFlashCommand::erase ||
+		    command.getType() == CoFlashCommand::verify ||
+			command.getType() == CoFlashCommand::help))
+		{
+			PyOcdCommandBuilder pyOcdBuilder;
+			string cmd = pyOcdBuilder.
+							withCommand(command).
+							withTarget(getCpu()).
+							withPack("cmsis.pack").
+							withFirmware("firmware.elf").
+							withFrequency(getDebuggerClock()).
+							withErase(getEraseOption()).
+							build();
+
+			cout << cmd << endl;
+		}
 #else
 		execCoFlash(makeCmdLine().data());
-		cout << "All operations:\t[Done]" << endl;
 #endif
 		return EXIT_SUCCESS;
 	}
