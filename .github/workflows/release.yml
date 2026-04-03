@@ -26,7 +26,7 @@ jobs:
       
       - name: Setup MinGW
         run: |
-          choco install mingw -y
+          choco install mingw --version=8.1.0 -y
           echo "C:\tools\mingw64\bin" >> $GITHUB_PATH
       
       - name: Build
