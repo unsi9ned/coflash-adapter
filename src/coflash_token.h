@@ -5,6 +5,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cstring>
+#include <cstdint>
 #include <cctype>
 #include <vector>
 #include <string>
