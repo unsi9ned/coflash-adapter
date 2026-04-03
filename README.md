@@ -28,6 +28,17 @@ coflash.exe program NRF52832_XXAA "nrf52.elf" --adapter-name=CMSIS-DAP --port=SW
 pyocd flash --target NRF52832_XXAA --frequency 2000000 --erase sector "nrf52.elf"
 ```
 
+**Требования**
+
+- **MinGW-w64** (GCC для Windows)
+- **make** (входит в состав MinGW)
+
+**Сборка**
+```bash
+make
+make clean
+```
+
 **Установка в CoIDE**
 1. Перейти в каталог установки C:\CooCox\CoIDE
 2. Скачать программу [**pyocd-windows-0.44.0.zip**](https://github.com/pyocd/pyOCD/releases/download/v0.44.0/pyocd-windows-0.44.0.zip)
