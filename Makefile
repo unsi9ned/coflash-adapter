@@ -15,11 +15,10 @@ $(TARGET): $(OBJECTS)
 	$(CXX) $(OBJECTS) -o $(TARGET)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
-	if not exist $(OBJDIR) mkdir $(OBJDIR)
+	@mkdir -p $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	if exist $(OBJDIR) rmdir /s /q $(OBJDIR)
-	if exist $(TARGET) del $(TARGET)
+	@rm -rf $(OBJDIR) $(TARGET)
 
 .PHONY: all clean
