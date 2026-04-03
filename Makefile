@@ -1,5 +1,6 @@
 CXX = g++
-CXXFLAGS = -std=c++11 -O0 -g3 -Wall -c -fmessage-length=0 
+CXXFLAGS = -std=c++11 -Wall -O2 -D_GLIBCXX_USE_CXX11_ABI=0
+LDFLAGS = -static-libgcc -static-libstdc++
 TARGET = coflash.exe
 SRCDIR = src
 OBJDIR = obj
@@ -12,7 +13,7 @@ OBJECTS = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SOURCES))
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $(TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) -o $(TARGET)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(OBJDIR)
