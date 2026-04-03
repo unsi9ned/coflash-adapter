@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall -O2
-TARGET = coflash.exe
+TARGET = coflash_adapter
 SRCDIR = src
 OBJDIR = obj
 
@@ -15,11 +15,10 @@ $(TARGET): $(OBJECTS)
 	$(CXX) $(OBJECTS) -o $(TARGET)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
-	if not exist $(OBJDIR) mkdir $(OBJDIR)
+	@mkdir -p $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	if exist $(OBJDIR) rmdir /s /q $(OBJDIR)
-	if exist $(TARGET) del $(TARGET)
+	@rm -rf $(OBJDIR) $(TARGET)
 
 .PHONY: all clean
