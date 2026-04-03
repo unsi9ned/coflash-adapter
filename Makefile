@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall -O2
-TARGET = coflash_adapter
+TARGET = coflash.exe
 SRCDIR = src
 OBJDIR = obj
 
