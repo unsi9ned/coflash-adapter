@@ -1,0 +1,50 @@
+name: 'Build and Release'
+
+# ВРЕМЕННО: Запускать workflow только из ветки ci/debug-workflow
+on:
+  push:
+    branches:
+      - 'ci/debug-workflow'
+  workflow_dispatch: # Оставляем для ручного запуска из интерфейса GitHub
+  
+#on:
+#  push:
+#    tags:
+#      - 'v*'  # Workflow запускается при создании тега, например, v0.1.0
+
+permissions:
+  contents: write  # Нужно для создания релиза
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up MinGW
+        run: sudo apt-get install gcc-mingw-w64-x86-64
+
+      - name: Build with Make
+        run: make
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coflash-adapter
+          path: coflash_adapter.exe
+
+  release:
+    needs: build  # Дожидается успешного завершения задачи 'build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coflash-adapter
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: coflash_adapter.exe
+          generate_release_notes: true
