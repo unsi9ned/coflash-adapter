@@ -17,22 +17,16 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up MinGW
-        run: sudo apt-get install gcc-mingw-w64-x86-64
-
-      - name: Build with Make
+      - uses: actions/checkout@v4
+      - name: Build
         run: make
-
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: coflash-adapter
-          path: coflash_adapter.exe
+          path: coflash.exe
 
   release:
     needs: build  # Дожидается успешного завершения задачи 'build'
