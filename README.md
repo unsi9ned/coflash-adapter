@@ -34,7 +34,14 @@ pyocd flash --target NRF52832_XXAA --frequency 2000000 --erase sector "nrf52.elf
 - **make** (входит в состав MinGW)
 
 **Сборка**
+```batch
+# Windows
+build
+clean
+```
+
 ```bash
+# Ubuntu
 make
 make clean
 ```

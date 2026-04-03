@@ -1,5 +1,6 @@
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -O2
+CXXFLAGS = -std=c++11 -Wall -O2 -D_GLIBCXX_USE_CXX11_ABI=0
+LDFLAGS = -static-libgcc -static-libstdc++
 TARGET = coflash.exe
 SRCDIR = src
 OBJDIR = obj
@@ -12,14 +13,13 @@ OBJECTS = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SOURCES))
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $(TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) -o $(TARGET)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
-	if not exist $(OBJDIR) mkdir $(OBJDIR)
+	@mkdir -p $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	if exist $(OBJDIR) rmdir /s /q $(OBJDIR)
-	if exist $(TARGET) del $(TARGET)
+	@rm -rf $(OBJDIR) $(TARGET)
 
 .PHONY: all clean

@@ -1,0 +1,53 @@
+name: 'Build and Release'
+
+on:
+  workflow_dispatch:  # Ручной запуск
+  push:
+    tags:
+      - 'v*'          # Автоматический запуск при тегах v1.0, v2.0 и т.д.
+  
+permissions:
+  contents: write  # Нужно для создания релиза
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup MinGW
+        run: |
+          choco install mingw --version=10.3.0 -y
+          echo "C:\tools\mingw64\bin" >> $GITHUB_PATH
+      
+      - name: Build
+        run: make
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coflash-adapter
+          path: coflash.exe
+          retention-days: 1
+
+  release:
+    needs: build  # Дожидается успешного завершения задачи 'build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/download-artifact@v4
+        with:
+          name: coflash-adapter
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: coflash.exe
+          name: "coflash-adapter-${{ github.ref_name }}"
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
