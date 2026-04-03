@@ -41,7 +41,7 @@ clean
 ```
 
 ```bash
-# Ubuntu
+# Git Bash
 make
 make clean
 ```
