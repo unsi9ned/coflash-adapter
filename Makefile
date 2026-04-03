@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -O2
+CXXFLAGS = -std=c++11 -O0 -g3 -Wall -c -fmessage-length=0 
 TARGET = coflash.exe
 SRCDIR = src
 OBJDIR = obj
