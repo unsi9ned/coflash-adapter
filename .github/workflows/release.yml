@@ -2,9 +2,6 @@ name: 'Build and Release'
 
 # ВРЕМЕННО: Запускать workflow только из ветки ci/debug-workflow
 on:
-  push:
-    branches:
-      - 'ci/debug-workflow'
   workflow_dispatch: # Оставляем для ручного запуска из интерфейса GitHub
   
 #on:
